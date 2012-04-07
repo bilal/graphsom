@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Graphsom : A flexible metrics management and reporting system for Erlang" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Graphsom</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/techtraits/graphsom">Fork Me on GitHub</a>
+
+          <h1 id="project_title">Graphsom</h1>
+          <h2 id="project_tagline">A flexible metrics management and reporting system for Erlang</h2>
+
+          <section id="downloads">
+            <a class="zip_download_link" href="https://github.com/techtraits/graphsom/zipball/master">Download this project as a .zip file</a>
+            <a class="tar_download_link" href="https://github.com/techtraits/graphsom/tarball/master">Download this project as a tar.gz file</a>
+          </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>graphsom</h1>
+
+<p>graphsom is a flexible metrics management system for Erlang
+applications. It's main goal is for easier collection, management and
+reporting of metrics to multiple visualization backends. </p>
+
+<p><strong><a href="https://github.com/techtraits/graphsom/wiki/Getting-Started-Guide">Getting started guide</a></strong></p>
+
+<h2>Features</h2>
+
+<p><strong>Multiple Metric Systems Support</strong></p>
+
+<ul>
+<li>
+<a href="https://github.com/boundary/folsom">Folsom Metrics</a>:
+
+<ul>
+<li>All metric types: <code>gauge</code>, <code>counter</code>, <code>meter</code>, <code>histogram</code> and <code>history</code>
+</li>
+<li>All VM metrics: <code>memory</code>,<code>statistics</code>, <code>process_info</code>, <code>system_info</code> and <code>port_info</code>
+</li>
+</ul>
+</li>
+<li>A simple callback-based <strong>Graphsom Metrics API</strong> is available for custom
+user-defined metrics</li>
+<li>Support for <a href="https://github.com/RJ/estatsd">estatsd</a> coming soon</li>
+</ul><p><strong>Visualization Backends Support</strong>  </p>
+
+<ul>
+<li>Currently, only <a href="http://graphite.wikidot.com/">Graphite</a> is
+supported. Support for other visualization backends coming soon</li>
+</ul><h2>Create and Register Folsom Metrics</h2>
+
+<p>Add some folsom metrics (<a href="https://github.com/boundary/folsom">folsom API</a>):</p>
+
+<pre><code>folsom_metrics:new_counter(metric_name_1).
+folsom_metrics:new_meter(metric_name_2).
+</code></pre>
+
+<p>Update values for the metrics (<a href="https://github.com/boundary/folsom">folsom API</a>):</p>
+
+<pre><code>folsom_metrics:notify({metric_name_1, {inc, 100}}).
+folsom_metrics:notify({metric_name_2, 300}).
+</code></pre>
+
+<p>Register folsom metric with <code>graphsom</code> for reporting:</p>
+
+<pre><code>graphsom:register_folsom_metric(metric_name_1).
+</code></pre>
+
+<p>De-register folsom metric:</p>
+
+<pre><code>graphsom:deregister_folsom_metric(metric_name_1).
+</code></pre>
+
+<p>To get the list of currently registered folsom metrics</p>
+
+<pre><code>graphsom:registered_metrics().
+</code></pre>
+
+<h2>Custom Metrics</h2>
+
+<p>Graphsom metrics API is offered when a custom user-defined
+metric needs to be reported. </p>
+
+<p>To register a custom metric:</p>
+
+<pre><code>graphsom:register_graphsom_metric(METRIC_NAME, MODULE, FUN, PARAMS).
+</code></pre>
+
+<p>Graphsom expects a property list as a response to the callback
+<code>MODULE:FUN</code> with <code>PARAMS</code> as parameters. 
+Note that <code>FUN</code> must be exported by the module <code>MODULE</code> with the a correct arity.    </p>
+
+<p>For example, we can use Graphsom API to report the number children of a <code>worker_sup</code> supervisor, i.e., the result of</p>
+
+<pre><code>&gt; supervisor:count_children(worker_sup).
+&gt; [{specs,2},{active,2},{supervisors,1},{workers,1}]
+</code></pre>
+
+<p>This can be directly registered with graphsom as follows:</p>
+
+<pre><code>graphsom:register_graphsom_metric(worker_count, supervisor, count_children, [worker_sup]).
+</code></pre>
+
+<h2>Reporting Metrics</h2>
+
+<p><strong>Interval-Based Reporting</strong></p>
+
+<p>Tell graphsom to start reporting. All registered metrics are
+reported periodically after a configurable interval. </p>
+
+<pre><code>graphsom:start_reporting().
+</code></pre>
+
+<p><strong>Manual Reporting</strong>    </p>
+
+<pre><code>graphsom:report_now().
+</code></pre>
+
+<p>Check graphite for the values!!</p>
+
+<h2>Configuration</h2>
+
+<p>The configuration parameters for graphsom can be added to application
+config file (<code>[RELEASE]/files/sys.config</code>). An example configuration:</p>
+
+<pre><code>{graphsom, [
+         {report_interval, 30000},     %% report interval (ms)
+         {graphite_host, "techtraits.com"}, %% defaults to localhost
+         {graphite_port, 2003},        %% defaults to 2003
+         {graphite_prefix, "graphsom"}, %% prefix added to all metrics
+         {vm_metrics, [memory, statistics]},   %% defaults to []
+         {report_all_folsom_metrics, false}   %% defaults to false
+        ]}
+</code></pre>
+
+<ul>
+<li><p><code>graphite_prefix</code> can be used to specify the prefix prepended to all
+metric names. For example, "response_time" would be reported as
+"graphsom.response_time". </p></li>
+<li><p><code>vm_metrics</code> can be used to report folsom VM metrics</p></li>
+<li><p>If <code>report_all_folsom_metrics</code> is set to <code>true</code>, graphsom reports all folsom
+metrics that exist at the time of reporting. Alternatively,
+<code>register_folsom_metric</code> API can be used for reporting selective metrics to graphite.</p></li>
+</ul><h2>Authors </h2>
+
+<p>Bilal Sheikh (<a href="mailto:bilal@techtraits.com">bilal@techtraits.com</a>)<br>
+Usman Ismail (<a href="mailto:usman@techtraits.com">usman@techtraits.com</a>)</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Graphsom maintained by <a href="https://github.com/techtraits">techtraits</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
